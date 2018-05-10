@@ -1,5 +1,7 @@
 use error::*;
+use std::fmt;
 use std::io::{Read, Write, Cursor};
+use std::str::from_utf8;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use enum_primitive::FromPrimitive;
 use method::EncodedMethod;
@@ -50,11 +52,44 @@ impl EncodedProperties {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Frame {
     pub frame_type: FrameType,
     pub channel: u16,
     pub payload: FramePayload,
+}
+
+impl fmt::Debug for Frame {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut f_struct = f.debug_struct("Frame");
+        f_struct.field("frame_type", &self.frame_type);
+        f_struct.field("channel", &self.channel);
+
+        // Try to decode our payload so we can show more information.
+        let mut decoded = false;
+        match self.frame_type {
+            FrameType::HEADERS => {
+                if let Ok(headers) = ContentHeaderFrame::decode(self) {
+                    decoded = true;
+                    f_struct.field("payload", &headers);
+                }
+            }
+            FrameType::BODY => {
+                if let Ok(body) = from_utf8(self.payload.inner()) {
+                    decoded = true;
+                    f_struct.field("payload", &body);
+                }
+            }
+            _ => {}
+        }
+
+        // If we couldn't decode our payload, just show the bytes.
+        if !decoded {
+            f_struct.field("payload", &self.payload);
+        }
+
+        f_struct.finish()
+    }
 }
 
 pub struct FrameHeader {
