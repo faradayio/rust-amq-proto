@@ -5,6 +5,7 @@ use std::str::from_utf8;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use enum_primitive::FromPrimitive;
 use method::EncodedMethod;
+use protocol::basic::BasicProperties;
 
 enum_from_primitive! {
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -68,6 +69,12 @@ impl fmt::Debug for Frame {
         // Try to decode our payload so we can show more information.
         let mut decoded = false;
         match self.frame_type {
+            FrameType::METHOD => {
+                if let Ok(method) = MethodFrame::decode(self) {
+                    decoded = true;
+                    f_struct.field("payload", &method);
+                }
+            }
             FrameType::HEADERS => {
                 if let Ok(headers) = ContentHeaderFrame::decode(self) {
                     decoded = true;
